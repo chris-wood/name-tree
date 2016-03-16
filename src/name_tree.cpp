@@ -1,9 +1,8 @@
-#include <string>
-#include <vector>
 #include <iostream>
 
 #include "name_tree.hpp"
 #include "hasher.hpp"
+#include "random.hpp"
 
 using namespace std;
 
@@ -152,36 +151,6 @@ NameTree::anonymousChildList()
     }
     return array;
 }
-
-NameTree *
-generateRandomNode()
-{
-    string name = randomString(10);
-    return new NameTree(name);
-}
-
-NameTree *
-generateRandomTree(int maxChildren, int maxDepth)
-{
-    if (maxDepth == 0) {
-        return NULL;
-    }
-
-    NameTree *node = generateRandomNode();
-
-    int numChildren = rand() % maxChildren + 1;
-    if (numChildren > 0) {
-        for (int i = 0; i < numChildren; i++) {
-            NameTree *child = generateRandomTree(maxChildren, maxDepth - 1);
-            if (child != NULL) {
-                node->addChild(child);
-            }
-        }
-    }
-
-    return node;
-}
-
 void
 NameTree::display(int indent)
 {
