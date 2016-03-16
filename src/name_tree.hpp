@@ -1,25 +1,28 @@
 #include <string>
-
-using namespace std;
+#include "cJSON.h"
 
 class NameTree {
 public:
-    NameTree(string name);
+    NameTree(std::string name);
 
     void addChild(NameTree *child);
-    void addData(string data);
+    void addData(std::string data);
 
     void display(int indents);
 
-    NameTree *findNode(vector<string> target, int index);
-    NameTree *findParent(vector<string> target, int index);
-    vector<string> childList();
-    vector<string> anonymousChildList();
+    NameTree *findNode(std::vector<std::string> target, int index);
+    NameTree *findParent(std::vector<std::string> target, int index);
 
-    string name;
-    string salt;
-    string target;
+    std::vector<std::string> childList();
+    cJSON *anonymousChildList();
 
-    vector<string> dataEntries;
-    vector<NameTree*> children;
+    // Plaintext name
+    std::string name;
+
+    // Salted name
+    std::string salt;
+    std::string target;
+
+    std::vector<std::string> dataEntries;
+    std::vector<NameTree*> children;
 };

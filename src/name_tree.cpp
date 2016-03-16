@@ -1,44 +1,11 @@
-#include <cryptopp/base64.h>
-#include <cryptopp/files.h>
-#include <cryptopp/hex.h>
-#include <cryptopp/osrng.h>
-#include <cryptopp/pwdbased.h>
-#include <cryptopp/sha.h>
+#include <string>
+#include <vector>
+#include <iostream>
 
 #include "name_tree.hpp"
+#include "hasher.hpp"
 
-void
-disp(vector<string> data)
-{
-    for (vector<string>::iterator itr = data.begin(); itr != data.end(); itr++) {
-        cout << *itr << "/";
-    }
-    cout << endl;
-}
-
-// https://www.safaribooksonline.com/library/view/c-cookbook/0596007612/ch04s07.html
-vector<string>
-split(const string& s, char c) {
-    vector<string> split;
-    string::size_type i = 0;
-    string::size_type j = s.find(c);
-
-    while (j != string::npos) {
-        split.push_back(s.substr(i, j-i));
-        i = ++j;
-        j = s.find(c, j);
-
-        if (j == string::npos) {
-            split.push_back(s.substr(i, s.length()));
-        }
-    }
-
-    if (split.size() == 0) {
-        split.push_back(s);
-    }
-
-    return split;
-}
+using namespace std;
 
 // http://stackoverflow.com/questions/440133/how-do-i-create-a-random-alpha-numeric-string-in-c
 void
@@ -64,26 +31,15 @@ randomString(size_t length)
     return str;
 }
 
-string
-SHA256HashString(string aString) {
-    string digest;
-    CryptoPP::SHA256 hash;
-
-    CryptoPP::StringSource foo(aString, true,
-    new CryptoPP::HashFilter(hash,
-      new CryptoPP::Base64Encoder (
-         new CryptoPP::StringSink(digest))));
-
-    return digest;
-}
-
 NameTree::NameTree(string new_name)
 {
     name = new_name;
 
     // generate salt and compute the target
     salt = randomString(128);
-    target = SHA256HashString(name + salt);
+
+    Hasher hasher;
+    target = hasher.Hash(name + salt);
 }
 
 void
@@ -160,17 +116,41 @@ NameTree::childList()
     return childNames;
 }
 
-vector<string>
+cJSON *
 NameTree::anonymousChildList()
 {
-    vector<string> childNames;
+    cJSON *array = cJSON_CreateArray();
     for (vector<NameTree*>::iterator itr = children.begin(); itr != children.end(); itr++) {
-        childNames.push_back((*itr)->name);
+        cJSON *saltJson = cJSON_CreateString(salt.c_str());
+        cJSON *targetJson = cJSON_CreateString(target.c_str());
+
+        cJSON *record = cJSON_CreateObject();
+        cJSON_AddItemToObject(record, "salt", saltJson);
+        cJSON_AddItemToObject(record, "target", targetJson);
+
+        cJSON_AddItemToArray(array, record);
     }
     for (vector<string>::iterator itr = dataEntries.begin(); itr != dataEntries.end(); itr++) {
-        childNames.push_back(*itr);
+        string dataSalt = randomString(128);
+
+        Hasher hasher;
+
+        string dataTarget = hasher.Hash(*itr + dataSalt);
+
+        cout << "input = " << *itr << endl;
+        cout << "salt = " << dataSalt << endl;
+        cout << "target = " << dataTarget << endl;
+
+        cJSON *saltJson = cJSON_CreateString(dataSalt.c_str());
+        cJSON *targetJson = cJSON_CreateString(dataTarget.c_str());
+
+        cJSON *record = cJSON_CreateObject();
+        cJSON_AddItemToObject(record, "salt", saltJson);
+        cJSON_AddItemToObject(record, "target", targetJson);
+
+        cJSON_AddItemToArray(array, record);
     }
-    return childNames;
+    return array;
 }
 
 NameTree *
@@ -218,69 +198,4 @@ NameTree::display(int indent)
         }
         cout << "- " << *itr << endl;
     }
-}
-
-int
-main()
-{
-    string rootName = "foo";
-    NameTree *root = new NameTree(rootName);
-
-    string rootData = "random";
-    root->addData(rootData);
-
-    string child1Name = "bar";
-    NameTree *child1 = new NameTree(child1Name);
-    root->addChild(child1);
-
-    string child1Data = "baz";
-    child1->addData(child1Data);
-
-    string targetString = "foo/bar";
-    vector<string> target = split(targetString, '/');
-    // disp(target);
-    // NameTree *found = root->findNode(target, 0);
-    // cout << targetString << " found? " << (found != NULL) << endl;
-    // if (found != NULL) {
-    //     found->display(0);
-    // }
-
-    // targetString = "random";
-    // target = split(targetString, '/');
-    // disp(target);
-    // found = root->findNode(target, 0);
-    // cout << targetString << " found? " << (found != NULL) << endl;
-    // if (found != NULL) {
-    //     found->display(0);
-    // }
-
-    // targetString = "bar/baz";
-    // target = split(targetString, '/');
-    // found = root->findNode(target, 0);
-    // cout << targetString << " found? " << (found != NULL) << endl;
-    // vector<string> gap = root->findGap(target, 0);
-    // for (vector<string>::iterator itr = gap.begin(); itr != gap.end(); itr++) {
-    //     cout << *itr << ", ";
-    // }
-    // cout << endl;
-
-    root->display(0);
-
-    targetString = "foo/bar/bad";
-    target = split(targetString, '/');
-    NameTree *found = root->findNode(target, 0);
-    cout << targetString << " found? " << (found != NULL) << endl;
-
-    NameTree *parent = root->findParent(target, 0);
-    parent->display(0);
-    cout << "NAME " << parent->name << endl;
-
-
-    vector<string> children = parent->childList();
-    for (vector<string>::iterator itr = children.begin(); itr != children.end(); itr++) {
-        cout << *itr << ", ";
-    }
-    cout << endl;
-    // NameTree *randomRoot = generateRandomTree(10, 5);
-    // randomRoot->display(0);
 }
